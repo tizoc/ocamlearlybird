@@ -27,12 +27,19 @@ type t = {
   all_search_dirs : string list;
 }
 
+let cwd = Sys.getcwd ()
+
+let adjust_search_dir dir = match String.split_on_char '/' dir with
+| ""::"workspace_root"::rest -> cwd ^ "/" ^ (String.concat "/" rest)
+| _ -> dir
+
 let make frag_num debug_info =
   let module_tbl = Hashtbl.create 0 in
   let event_tbl = Hashtbl.create 0 in
   let globals, evls = debug_info in
   let all_search_dirs = ref StringSet_.empty in
   let process_evl (evl, search_dirs) =
+    let search_dirs = List.map adjust_search_dir search_dirs in
     all_search_dirs :=
       StringSet_.union !all_search_dirs (StringSet_.of_list search_dirs);
     let module_eq = Compare.by (fun ev -> ev.ev_module) |> Compare.to_equal in

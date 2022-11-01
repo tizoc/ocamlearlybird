@@ -33,6 +33,19 @@ let _lock_conn (c, time) f =
       if c.dead || time <> c.time then raise Invalid_state;
       (f conn) [%finally [%lwt assert (time = c.time)]])
 
+let cwd = Sys.getcwd ()
+let cwd_len = Stdlib.String.length cwd
+
+let adjust_search_dir dir =
+  if Stdlib.String.ends_with ~suffix:".objs/byte" dir
+    && Stdlib.String.starts_with ~prefix:cwd dir
+    && not (Stdlib.String.starts_with ~prefix:(cwd ^ "/_build/default/") dir)
+    && not (Stdlib.String.starts_with ~prefix:(cwd ^ "/_opam/") dir)
+  then
+    let without_cwd = Stdlib.String.sub dir cwd_len (Stdlib.String.length dir - cwd_len) in
+    cwd ^ "/_build/default" ^ without_cwd
+  else dir
+
 let _get_frame symbols index (stack_pos, pc) =
   let event = Symbols.find_event_opt symbols pc in
   let loc =
@@ -65,6 +78,8 @@ let _get_frame symbols index (stack_pos, pc) =
           | module_ -> module_.search_dirs
           | exception Not_found -> frag.all_search_dirs
         in
+        let get_search_dirs module_id =
+           List.map adjust_search_dir (get_search_dirs module_id) in
         Typenv.from_summary ~get_search_dirs event.ev_typenv event.ev_typsubst)
   in
   let globals =
